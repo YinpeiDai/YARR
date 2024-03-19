@@ -12,6 +12,8 @@
 # its affiliates is strictly prohibited.
 
 from multiprocessing import Value
+import time
+from typing import Union
 
 import numpy as np
 import torch
@@ -19,6 +21,7 @@ from yarr.agents.agent import Agent
 from yarr.envs.env import Env
 from yarr.utils.transition import ReplayTransition
 from yarr.agents.agent import ActResult
+from rvt.utils.custom_rlbench_env import CustomMultiTaskRLBenchEnv2
 
 class RolloutGenerator(object):
 
@@ -30,7 +33,7 @@ class RolloutGenerator(object):
             return np.float32
         return x.dtype
 
-    def generator(self, step_signal: Value, env: Env, agent: Agent,
+    def generator(self, step_signal: Value, env: Union[CustomMultiTaskRLBenchEnv2, Env], agent: Agent, # type: ignore
                   episode_length: int, timesteps: int,
                   eval: bool, eval_demo_seed: int = 0,
                   record_enabled: bool = False,
@@ -44,10 +47,22 @@ class RolloutGenerator(object):
         else:
             obs = env.reset()
         agent.reset()
-        obs_history = {k: [np.array(v, dtype=self._get_type(v))] * timesteps for k, v in obs.items()}
+        # obs_history = {k: [np.array(v, dtype=self._get_type(v))] * timesteps for k, v in obs.items()}
+        obs_history = {}
+        for k, v in obs.items():
+            if isinstance(v, np.ndarray):
+                obs_history[k] = [np.array(v, dtype=self._get_type(v))] * timesteps
+            else:
+                obs_history[k] = [v] * timesteps
+            
         for step in range(episode_length):
-
-            prepped_data = {k:torch.tensor(np.array([v]), device=self._env_device) for k, v in obs_history.items()}
+            # prepped_data = {k:torch.tensor(np.array([v]), device=self._env_device) for k, v in obs_history.items()}
+            prepped_data = {}
+            for k, v in obs_history.items():
+                if isinstance(v[0], np.ndarray):
+                    prepped_data[k] = torch.tensor(np.array([v]), device=self._env_device)
+                else:
+                    prepped_data[k] = v
             if not replay_ground_truth:
                 act_result = agent.act(step_signal.value, prepped_data,
                                     deterministic=eval)

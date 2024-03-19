@@ -138,7 +138,8 @@ class RLBenchEnv(Env):
     def extract_obs(self, obs: Observation):
         extracted_obs = _extract_obs(obs, self._channels_last, self._observation_config)
         if self._include_lang_goal_in_obs:
-            extracted_obs['lang_goal_tokens'] = tokenize([self._lang_goal])[0].numpy()
+            # extracted_obs['lang_goal_tokens'] = tokenize([self._lang_goal])[0].numpy()
+            extracted_obs["lang_goal_str"] = self._lang_goal
         return extracted_obs
 
     def launch(self):
@@ -220,7 +221,8 @@ class MultiTaskRLBenchEnv(MultiTaskEnv):
     def extract_obs(self, obs: Observation):
         extracted_obs = _extract_obs(obs, self._channels_last, self._observation_config)
         if self._include_lang_goal_in_obs:
-            extracted_obs['lang_goal_tokens'] = tokenize([self._lang_goal])[0].numpy()
+            # extracted_obs['lang_goal_tokens'] = tokenize([self._lang_goal])[0].numpy()
+            extracted_obs["lang_goal_str"] = self._lang_goal
         return extracted_obs
 
     def launch(self):
