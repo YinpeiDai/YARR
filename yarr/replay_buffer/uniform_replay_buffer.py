@@ -699,7 +699,12 @@ class UniformReplayBuffer(ReplayBuffer):
                 else:
                     attempt_count += 1
         elif distribution_mode == 'task_uniform':
-            task_indices = np.random.randint(low = 0, high = self._num_tasks, size = batch_size)
+            task_dict = self._task_index
+            oversampled_task_idx = [task_dict[task] for task in ["put_item_in_drawer", "stack_cups", "place_cups", "stack_blocks"]]
+            p = np.array([2 if i in oversampled_task_idx else 1 for i in range(len(task_dict))])
+            p = p / p.sum()
+            task_indices = np.random.choice(list(task_dict.values()), batch_size, p=p)
+            # task_indices = np.random.randint(low = 0, high = self._num_tasks, size = batch_size)
             for task_index in task_indices:
                 attempt_count = 0
                 while attempt_count < self._max_sample_attempts:

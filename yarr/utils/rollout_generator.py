@@ -70,8 +70,6 @@ class RolloutGenerator(object):
                 if step >= len(actions):
                     return
                 act_result = ActResult(actions[step])
-            
-            # print("\t", step, "pose: ", act_result.action[:7], "gripper open: ", act_result.action[7]==1, "ignore collision:", act_result.action[8]==1)
 
             # Convert to np if not already
             agent_obs_elems = {k: np.array(v) for k, v in
