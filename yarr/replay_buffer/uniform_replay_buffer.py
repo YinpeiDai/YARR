@@ -400,8 +400,9 @@ class UniformReplayBuffer(ReplayBuffer):
                 self._index_mapping[cursor, 0] = task_idx
                 self._index_mapping[cursor, 1] = task_cursor
 
-                with open(join(task_replay_storage_folder, '%d.replay' % task_cursor), 'wb') as f:
-                    pickle.dump(kwargs, f)
+                # with open(join(task_replay_storage_folder, '%d.replay' % task_cursor), 'wb') as f:
+                #     pickle.dump(kwargs, f)
+                self._smart_dump(kwargs, join(task_replay_storage_folder, '%d.replay' % task_cursor))
                 # If first add, then pad for correct wrapping
                 # TODO: it's gonna be wrong if self.timestep > 1, no mapping for initial steps (which are indexed as the end of the buffer)
                 if self._add_count.value == 0:
@@ -422,6 +423,34 @@ class UniformReplayBuffer(ReplayBuffer):
             self.invalid_range = invalid_range(
                 self.cursor(), self._replay_capacity, self._timesteps,
                 self._update_horizon)
+    
+    def _smart_dump(self, data_kwargs, path):
+        for k, v in data_kwargs.items():
+            if "goal_embs" in k:
+                length_key = k.replace("goal_embs", "len")
+                length = data_kwargs[length_key]
+                data_kwargs[k] = v[:length[0]]
+        with open(path, 'wb') as f:
+            pickle.dump(data_kwargs, f)
+
+
+    def _smart_load(self, path, MAX_LEN=77):
+        with open(path, 'rb') as f:
+            data_kwargs = pickle.load(f)
+        for k, v in data_kwargs.items():
+            if "depth" in k:
+                data_kwargs[k] = v.astype(np.float64)
+            if "goal_embs" in k:
+                length_key = k.replace("goal_embs", "len")
+                length = data_kwargs[length_key]
+                if length[0] < MAX_LEN:
+                    assert v.shape[0] == length[0]
+                    data_kwargs[k] = np.concatenate(
+                        [v, np.zeros((MAX_LEN - length[0], v.shape[1]), dtype=np.float32)], axis=0)
+                elif length[0] > MAX_LEN:
+                    data_kwargs[k] = v[:MAX_LEN]
+        return data_kwargs
+        
 
     def _get_from_disk(self, start_index, end_index):
         """Returns the range of array at the index handling wraparound if necessary.
@@ -450,19 +479,21 @@ class UniformReplayBuffer(ReplayBuffer):
                 task_replay_storage_folder = self._task_replay_storage_folders[self._index_mapping[i, 0]]
                 task_index = self._index_mapping[i, 1]
 
-                with open(join(task_replay_storage_folder, '%d.replay' % task_index), 'rb') as f:
-                    d = pickle.load(f)
-                    for k, v in d.items():
-                        store[k][i] = v # NOTE: potential bug here, should % self._replay_capacity
+                # with open(join(task_replay_storage_folder, '%d.replay' % task_index), 'rb') as f:
+                #     d = pickle.load(f)
+                d = self._smart_load(join(task_replay_storage_folder, '%d.replay' % task_index))
+                for k, v in d.items():
+                    store[k][i] = v # NOTE: potential bug here, should % self._replay_capacity
         else:
             for i in range(end_index - start_index):
                 idx = (start_index + i) % self._replay_capacity
                 task_replay_storage_folder = self._task_replay_storage_folders[self._index_mapping[idx, 0]]
                 task_index = self._index_mapping[idx, 1]
-                with open(join(task_replay_storage_folder, '%d.replay' % task_index), 'rb') as f:
-                    d = pickle.load(f)
-                    for k, v in d.items():
-                        store[k][idx] = v
+                # with open(join(task_replay_storage_folder, '%d.replay' % task_index), 'rb') as f:
+                #     d = pickle.load(f)
+                d = self._smart_load(join(task_replay_storage_folder, '%d.replay' % task_index))
+                for k, v in d.items():
+                    store[k][idx] = v
         return store
 
     def _check_add_types(self, kwargs, signature):
@@ -699,12 +730,12 @@ class UniformReplayBuffer(ReplayBuffer):
                 else:
                     attempt_count += 1
         elif distribution_mode == 'task_uniform':
-            task_dict = self._task_index
-            oversampled_task_idx = [task_dict[task] for task in ["put_item_in_drawer", "stack_cups", "place_cups", "stack_blocks"]]
-            p = np.array([2 if i in oversampled_task_idx else 1 for i in range(len(task_dict))])
-            p = p / p.sum()
-            task_indices = np.random.choice(list(task_dict.values()), batch_size, p=p)
-            # task_indices = np.random.randint(low = 0, high = self._num_tasks, size = batch_size)
+            # task_dict = self._task_index
+            # oversampled_task_idx = [task_dict[task] for task in ["put_item_in_drawer", "stack_cups", "place_cups", "stack_blocks"]]
+            # p = np.array([2 if i in oversampled_task_idx else 1 for i in range(len(task_dict))])
+            # p = p / p.sum()
+            # task_indices = np.random.choice(list(task_dict.values()), batch_size, p=p)
+            task_indices = np.random.randint(low = 0, high = self._num_tasks, size = batch_size)
             for task_index in task_indices:
                 attempt_count = 0
                 while attempt_count < self._max_sample_attempts:
