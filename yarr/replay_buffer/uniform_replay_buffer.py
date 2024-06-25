@@ -431,6 +431,8 @@ class UniformReplayBuffer(ReplayBuffer):
                 length = data_kwargs[length_key]
                 data_kwargs[k] = v[:length[0]]
         with open(path, 'wb') as f:
+            # print("dumping to", path, "demo", data_kwargs["demo"], "ep", data_kwargs["episode_idx"], "keyid", data_kwargs["keypoint_idx"], data_kwargs["terminal"], data_kwargs["fine_gpt_lang_goal"])
+            # print()
             pickle.dump(data_kwargs, f)
 
 
@@ -449,6 +451,7 @@ class UniformReplayBuffer(ReplayBuffer):
                         [v, np.zeros((MAX_LEN - length[0], v.shape[1]), dtype=np.float32)], axis=0)
                 elif length[0] > MAX_LEN:
                     data_kwargs[k] = v[:MAX_LEN]
+                    length[0] = MAX_LEN
         return data_kwargs
         
 
