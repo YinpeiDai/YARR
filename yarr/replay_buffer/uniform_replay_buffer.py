@@ -430,6 +430,8 @@ class UniformReplayBuffer(ReplayBuffer):
                 length_key = k.replace("goal_embs", "len")
                 length = data_kwargs[length_key]
                 data_kwargs[k] = v[:length[0]]
+        if "merged_pc" in data_kwargs and "merged_pc_number" in data_kwargs:
+            data_kwargs["merged_pc"] = data_kwargs["merged_pc"][:data_kwargs["merged_pc_number"][0]]
         with open(path, 'wb') as f:
             # print("dumping to", path, "demo", data_kwargs["demo"], "ep", data_kwargs["episode_idx"], "keyid", data_kwargs["keypoint_idx"], data_kwargs["terminal"], data_kwargs["fine_gpt_lang_goal"])
             # print()
@@ -452,6 +454,10 @@ class UniformReplayBuffer(ReplayBuffer):
                 elif length[0] > MAX_LEN:
                     data_kwargs[k] = v[:MAX_LEN]
                     length[0] = MAX_LEN
+        if "merged_pc" in data_kwargs and "merged_pc_number" in data_kwargs:
+            from rvt.utils.real_robot_utils import MAX_POINTS
+            data_kwargs["merged_pc"] = np.concatenate(
+                [data_kwargs["merged_pc"], np.zeros((MAX_POINTS - data_kwargs["merged_pc_number"][0], 6), dtype=np.float32)], axis=0)
         return data_kwargs
         
 
