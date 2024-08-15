@@ -439,8 +439,18 @@ class UniformReplayBuffer(ReplayBuffer):
 
 
     def _smart_load(self, path, MAX_LEN=77):
-        with open(path, 'rb') as f:
-            data_kwargs = pickle.load(f)
+        try:
+            with open(path, 'rb') as f:
+                data_kwargs = pickle.load(f)
+        except:
+            if os.path.islink(path):
+                real_path = os.path.realpath(path)
+                replay_id = os.path.split(real_path)[-1]
+                replay_path = os.path.join(os.path.dirname(path), replay_id)
+                replay_path = replay_path.replace("replay_train", "replay_val")
+                # print(path, '->', replay_path)
+                with open(replay_path, 'rb') as f:
+                    data_kwargs = pickle.load(f)
         for k, v in data_kwargs.items():
             if "depth" in k:
                 data_kwargs[k] = v.astype(np.float64)
@@ -454,6 +464,24 @@ class UniformReplayBuffer(ReplayBuffer):
                 elif length[0] > MAX_LEN:
                     data_kwargs[k] = v[:MAX_LEN]
                     length[0] = MAX_LEN
+
+        replay_id = os.path.split(path)[-1]
+        t = os.path.split(os.path.dirname(path))[-1]
+        other_level_lang_file = os.path.join("/nfs/turbo/coe-chaijy-unreplicated/daiyp/rvt/other-level-lang", t, replay_id)
+        with open(other_level_lang_file, 'rb') as f:
+            other_level_lang = pickle.load(f)
+        
+        for level in ["level1", "level2"]:
+            data_kwargs[f"fine_gpt_lang_goal-{level}"] = [other_level_lang[level]["text"]]
+            emb = other_level_lang[level]["embeddings"][0]
+            if emb.shape[0] < MAX_LEN:
+                data_kwargs[f"fine_gpt_lang_goal_embs_t5-11b-{level}"] = np.concatenate(
+                    [emb, np.zeros((MAX_LEN - emb.shape[0], emb.shape[1]), dtype=np.float32)], axis=0)
+                data_kwargs[f"fine_gpt_lang_len_t5-11b-{level}"] = np.array([emb.shape[0]], dtype=np.int32) 
+            elif emb.shape[0] > MAX_LEN:
+                data_kwargs[f"fine_gpt_lang_goal_embs_t5-11b-{level}"] = emb[:MAX_LEN]
+                data_kwargs[f"fine_gpt_lang_len_t5-11b-{level}"] = np.array([MAX_LEN], dtype=np.int32)
+
         if "merged_pc" in data_kwargs and "merged_pc_number" in data_kwargs:
             from rvt.utils.real_robot_utils import MAX_POINTS
             data_kwargs["merged_pc"] = np.concatenate(
