@@ -113,7 +113,8 @@ class UniformReplayBuffer(ReplayBuffer):
                  observation_elements: List[ObservationElement] = None,
                  extra_replay_elements: List[ReplayElement] = None,
                  disk_saving: bool = False,
-                 purge_replay_on_shutdown: bool = True
+                 purge_replay_on_shutdown: bool = True,
+                 other_lang_path: str = None,
                  ):
         """Initializes OutOfGraphReplayBuffer.
 
@@ -140,6 +141,7 @@ class UniformReplayBuffer(ReplayBuffer):
           ValueError: If replay_capacity is too small to hold at least one
             transition.
         """
+        self.other_lang_path = other_lang_path
 
         if observation_elements is None:
             observation_elements = []
@@ -467,7 +469,7 @@ class UniformReplayBuffer(ReplayBuffer):
 
         replay_id = os.path.split(path)[-1]
         t = os.path.split(os.path.dirname(path))[-1]
-        other_level_lang_file = os.path.join("/nfs/turbo/coe-chaijy-unreplicated/daiyp/rvt/other-level-lang", t, replay_id)
+        other_level_lang_file = os.path.join(self.other_lang_path, t, replay_id)
         with open(other_level_lang_file, 'rb') as f:
             other_level_lang = pickle.load(f)
         
